@@ -3,11 +3,87 @@ import pandas as pd
 import streamlit as st
 from scipy.stats import mode
 from sklearn.metrics import accuracy_score, f1_score
+import nltk
+from nltk.stem import WordNetLemmatizer
+from sklearn.preprocessing import LabelEncoder
+import nltk
+from nltk.corpus import stopwords
+from nltk import word_tokenize
+from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import (
+    precision_score,
+    recall_score,
+    f1_score,
+    multilabel_confusion_matrix,
+    confusion_matrix,
+)
+
 
 if "processed_df" in st.session_state:
     mbti_data = st.session_state.processed_df
     row_count = st.slider("Select number of rows to view", 1, len(mbti_data), 100)
     st.dataframe(mbti_data.head(row_count))
+
+# ----------------------------------------------
+# Feature Engineering
+# ----------------------------------------------
+
+new_df = st.session_state.processed_df
+new_df["posts"] = new_df["posts"].apply(
+    lambda x: x[:100] + "..." if len(x) > 100 else x
+)
+new_df.head()
+
+# Converting MBTI personality into numerical form using Label Encoding
+enc = LabelEncoder()
+new_df["type of encoding"] = enc.fit_transform(new_df["type"])
+
+target = new_df["type of encoding"]
+
+le_name_mapping = dict(zip(enc.classes_, enc.fit_transform(enc.classes_)))
+new_dict = dict([(value, key) for key, value in le_name_mapping.items()])
+new_dict
+
+
+nltk.download("stopwords")
+nltk.download("punkt")
+nltk.download("wordnet")
+print(stopwords.words("english"))
+
+
+class Lemmatizer:
+    def __init__(self):
+        self.lemmatizer = WordNetLemmatizer()
+
+    def __call__(self, text):
+        return [self.lemmatizer.lemmatize(word) for word in word_tokenize(text)]
+
+
+# Vectorizing the posts for the model and filtering Stop-words
+vect = CountVectorizer(max_features=10000, stop_words="english", tokenizer=Lemmatizer())
+
+# Converting posts (or training or X feature) into numerical form by count vectorization
+train = vect.fit_transform(new_df["posts"])
+
+print(train.shape)
+
+
+# ----------------------------------------------
+# Data-splitting: 70-30
+# ----------------------------------------------
+
+X_train, X_test, y_train, y_test = train_test_split(
+    train, target, test_size=0.3, stratify=target, random_state=42
+)
+print((X_train.shape), (y_train.shape), (X_test.shape), (y_test.shape))
+
+
+# ----------------------------------------------
+# KNN
+# ----------------------------------------------
 
 
 # Three distance metrics for KNN
@@ -88,7 +164,7 @@ def predict(X_train, X_test, Y, k, p, metric):
     return np.array(kclusters), np.array(distances)
 
 
-# KNN Hyper-paramters
+# Hyper-paramters
 num_neighhbors = 15  # Number of neighbors
 metric = "manhattan"  # Options: 'manhattan', 'minkowski', 'euclidean', 'cosine'
 p = 2  # 1 for l1-norm; 2 for l2-norm
