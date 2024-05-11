@@ -25,13 +25,12 @@ def extract(posts, new_posts):
         new_posts.append((posts[0], post))
 
 df = None
-uploaded_file = st.file_uploader('Upload the dataset', type=".csv")
-if uploaded_file:
-    #   store the file into the session if nothing exists OR upload a different file
-    if 'dataframe' not in st.session_state or st.session_state.file_name != uploaded_file.name:
-        dataframe = pd.read_csv(uploaded_file)
-        st.session_state.dataframe = dataframe
-        st.session_state.file_name = uploaded_file.name
+# uploaded_file = st.file_uploader('Upload the dataset', type=".csv")
+uploaded_file = load_dataset('./sample_data/mbti_1.csv')
+#   store the file into the session if nothing exists OR upload a different file
+if 'dataframe' not in st.session_state:
+    dataframe = uploaded_file
+    st.session_state.dataframe = dataframe
 
 if 'dataframe' in st.session_state:
     mbti_data = st.session_state.dataframe
