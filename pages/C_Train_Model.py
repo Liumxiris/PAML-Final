@@ -164,15 +164,15 @@ def predict(X_train, X_test, Y, k, p, metric):
     return np.array(kclusters), np.array(distances)
 
 
-# Hyper-paramters
-num_neighhbors = 15  # Number of neighbors
+# Hyper-parameters
+num_neighhbors = 15
 metric = "manhattan"  # Options: 'manhattan', 'minkowski', 'euclidean', 'cosine'
 p = 2  # 1 for l1-norm; 2 for l2-norm
 
 X_train = pd.DataFrame(X_train.toarray())
 X_test = pd.DataFrame(X_test.toarray())
-y_train = pd.DataFrame(y_train.toarray())
-y_test = pd.DataFrame(y_test.toarray())
+# y_train = pd.DataFrame(y_train.toarray())
+# y_test = pd.DataFrame(y_test.toarray())
 
 
 # Use subsets to speed up predicting
