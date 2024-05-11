@@ -4,5 +4,5 @@ matplotlib
 seaborn
 plotly
 wordcloud
-sklearn
+scikit-learn
 nltk
