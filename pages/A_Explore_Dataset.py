@@ -4,11 +4,6 @@ import streamlit as st
 # Data Analysis
 import pandas as pd
 import numpy as np
-from numpy import asarray
-from numpy import savetxt
-from numpy import loadtxt
-import pickle as pkl
-from scipy import sparse
 
 # Data Visualization
 import matplotlib.pyplot as plt
@@ -16,20 +11,6 @@ import seaborn as sns
 import plotly.express as px
 import wordcloud
 from wordcloud import WordCloud, STOPWORDS
-
-# Text Processing
-import re
-import itertools
-import string
-import collections
-from collections import Counter
-from sklearn.preprocessing import LabelEncoder
-import nltk
-from nltk.classify import NaiveBayesClassifier
-from nltk.corpus import stopwords
-from nltk import word_tokenize
-from nltk.tokenize import word_tokenize
-from nltk.stem import PorterStemmer, WordNetLemmatizer
 
 def load_dataset(filepath):
     data=pd.read_csv(filepath)
