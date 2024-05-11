@@ -7,7 +7,6 @@ import numpy as np
 from numpy import asarray
 from numpy import savetxt
 from numpy import loadtxt
-import pickle as pkl
 from scipy import sparse
 
 # Text Processing
