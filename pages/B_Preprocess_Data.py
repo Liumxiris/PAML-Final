@@ -79,4 +79,4 @@ if 'dataframe' in st.session_state:
     st.dataframe(processed_df.head(row_count))
 
     # update the dataframe in the session with preprocessed data
-    st.session_state.dataframe = processed_df
+    st.session_state.processed_df = processed_df
