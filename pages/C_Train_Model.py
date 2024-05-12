@@ -512,8 +512,63 @@ class StochasticLogisticRegression(LogisticRegression):
             self.learning_rate = self.learning_rate / 1.02
 
 
-sgd_logreg = StochasticLogisticRegression(learning_rate=0.001, num_iterations=100, batch_size=32)
-sgd_logreg.fit(X_train.to_numpy(), np.ravel(y_train))
-y_pred_sgd = sgd_logreg.predict(X_test.to_numpy())
-accuracy = accuracy_score(y_test, y_pred_sgd)
-print(f"Accuracy: {accuracy * 100.0}%")
+
+# select options for model
+model_options = ['Logistic Regression', 'Stochastic Gradient Descent with Logistic Regression', 'KNN']
+model_select = st.multiselect(
+    label='Select model for prediction',
+    options=model_options,
+)
+st.write('You selected : {}'.format(
+    model_select))
+
+if st.button('Train Model'):
+    if (model_options[1] in model_select):
+        st.markdown('#### ' + model_options[1])
+
+        # Number of iterations: maximum iterations to run the iterative SGD
+        sdg_num_iterations = st.number_input(
+            label='Enter the number of maximum iterations on training data',
+            min_value=1,
+            max_value=5000,
+            value=500,
+            step=100,
+            key='sgd_num_iterations_numberinput'
+        )
+        st.write('maximum iterations to: {}'.format(sdg_num_iterations))
+
+        # learning_rate: Constant that multiplies the regularization term. Ranges from [0 Inf)
+        sdg_learning_rate = st.text_input(
+            label='Input one alpha value',
+            value='0.001',
+            key='sdg_learning_rate_numberinput'
+        )
+        sdg_learning_rate = float(sdg_learning_rate)
+        st.write('learning rate: {}'.format(sdg_learning_rate))
+
+        # tolerance: stopping criteria for iterations
+        sgd_batch_size = st.text_input(
+            label='Input a batch size value',
+            value='50',
+            key='sgd_batch_size_textinput'
+        )
+        sgd_batch_size = int(sgd_batch_size)
+        st.write('batch_size: {}'.format(sgd_batch_size))
+
+        sgd_params = {
+            'num_iterations': sdg_num_iterations,
+            'batch_size': sgd_batch_size,
+            'learning_rate': sdg_learning_rate,
+        }
+
+        try:
+            sgd = StochasticLogisticRegression(num_iterations=sgd_params['num_iterations'],
+                                               learning_rate=sgd_params['learning_rate'],
+                                               batch_size=sgd_params['batch_size'])
+            sgd.fit(X_train.to_numpy(), np.ravel(y_train))
+            st.session_state[model_options[1]] = sgd
+            y_pred_sgd = sgd.predict(X_test.to_numpy())
+            accuracy = accuracy_score(y_test, y_pred_sgd)
+            st.write(f"Accuracy: {accuracy * 100.0}%")
+        except ValueError as err:
+            st.write({str(err)})
