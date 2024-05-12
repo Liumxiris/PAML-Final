@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 from scipy.stats import mode
+from scipy.sparse import issparse
+from numpy import log,dot,exp,shape
 from sklearn.metrics import accuracy_score, f1_score
 import nltk
 from nltk.stem import WordNetLemmatizer
@@ -80,6 +82,84 @@ X_train, X_test, y_train, y_test = train_test_split(
     train, target, test_size=0.3, stratify=target, random_state=42
 )
 print((X_train.shape), (y_train.shape), (X_test.shape), (y_test.shape))
+
+
+# ----------------------------------------------
+# Logistic Regression
+# ----------------------------------------------
+
+st.header('Logistic Regression')
+
+class LogisticRegression_jamie(object):
+    def sigmoid(self,z):
+        sig = 1/(1+exp(-z))
+        return sig
+    def initialize(self, X):
+        # Check if bias term is already included in X
+        if issparse(X):
+            X = X.toarray()
+        if X.shape[1] > 1 and (X[:, 0] == 1).all():
+            weights = np.zeros((X.shape[1], 1))
+            return weights, X
+        else:
+            weights = np.zeros((X.shape[1] + 1, 1))
+            X = np.c_[np.ones((X.shape[0], 1)), X]
+            return weights, X
+    def fit(self, X, y, alpha=None, iter=None): # alpha=learning eate, iteration
+        weights,X = self.initialize(X)
+        def cost(theta):
+            z = dot(X,theta)
+            cost0 = y.T.dot(log(self.sigmoid(z)))
+            cost1 = (1-y).T.dot(log(1-self.sigmoid(z)))
+            cost = -((cost1 + cost0))/len(y)
+            return cost
+        cost_list = np.zeros(iter,)
+
+        y_numpy = y.to_numpy()
+        y_reshaped = np.reshape(y_numpy, (-1, 1))
+
+        # ///////////
+
+        for i in range(iter):
+
+            # weights = weights - alpha*dot(X.T,self.sigmoid(dot(X,weights))-np.reshape(y,(len(y),1)))
+            sigmoid_output = self.sigmoid(np.dot(X, weights))
+            error = sigmoid_output - y_reshaped
+            gradient = np.dot(X.T, error)
+            weights_update = alpha * gradient
+            weights -= weights_update
+
+            cost_list[i] = cost(weights)
+        self.weights = weights
+        return cost_list
+    def predict(self,X):
+        z = dot(self.initialize(X)[1],self.weights)
+        lis = []
+        for i in self.sigmoid(z):
+            if i>0.5:
+                lis.append(1)
+            else:
+                lis.append(0)
+        return lis
+
+
+lr_value = st.slider("Select a learning rate", min_value=0.01, max_value=0.1, step=0.01)
+st.write("Logistic Regression Learning Rate:", lr_value)
+
+num_of_iter = st.slider("Select number of iterations", min_value=100, max_value=1000, step=100)
+st.write("Logistic Regression Number of Iterations:", num_of_iter)
+
+if st.button("Predict"):
+    accuracies = {}
+    logreg_model = LogisticRegression_jamie()
+    logreg_model.fit(X_train, y_train,alpha=lr_value, iter=num_of_iter)
+    Y_pred = logreg_model.predict(X_test)
+    predictions = [round(value) for value in Y_pred]
+
+    # evaluate predictions
+    accuracy = accuracy_score(y_test, predictions)
+    accuracies['Logistic Regression'] = accuracy* 100.0
+    st.write("Accuracy: %.2f%%" % (accuracy * 100.0))
 
 
 # ----------------------------------------------
