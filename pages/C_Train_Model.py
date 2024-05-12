@@ -433,7 +433,7 @@ class StochasticLogisticRegression(LogisticRegression):
 
 
 sgd_logreg = StochasticLogisticRegression(learning_rate=0.001, num_iterations=100, batch_size=32)
-sgd_logreg.fit(X_train.toarray(), np.ravel(y_train))
-y_pred_sgd = sgd_logreg.predict(X_test.toarray())
+sgd_logreg.fit(X_train.to_numpy(), np.ravel(y_train))
+y_pred_sgd = sgd_logreg.predict(X_test.to_numpy())
 accuracy = accuracy_score(y_test, y_pred_sgd)
 print(f"Accuracy: {accuracy * 100.0}%")
