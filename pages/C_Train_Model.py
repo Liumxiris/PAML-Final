@@ -324,14 +324,6 @@ class StochasticLogisticRegression(LogisticRegression):
             self.learning_rate = self.learning_rate / 1.02
 
 
-# def vetorize_posts(df):
-#     # Vectorizing the posts for the model and filtering Stop-words
-#     vect = CountVectorizer(max_features=10000, stop_words="english", tokenizer=Lemmatizer())
-
-#     # Converting posts (or training or X feature) into numerical form by count vectorization
-#     train = vect.fit_transform(df)
-#     return train
-
 if "processed_df" in st.session_state:
     new_df = st.session_state.processed_df
 
@@ -481,21 +473,19 @@ if "processed_df" in st.session_state:
         return cluster_predictions
 
     # select options for model
-    model_options = [
-        "Logistic Regression",
-        "Stochastic Gradient Descent with Logistic Regression",
-        "KNN",
-    ]
-    model_select = st.multiselect(
-        label="Select model for prediction", options=model_options, key="model_select"
+    model_options = ['Logistic Regression', 'Stochastic Gradient Descent with Logistic Regression', 'KNN']
+    model_select = st.selectbox(
+        label='Select model for prediction',
+        options=model_options,
     )
-    st.write("You selected : {}".format(model_select))
+    st.write('You selected : {}'.format(
+        model_select))
 
     # ----------------------------------------------
     # Logistic Regression
     # ----------------------------------------------
 
-    if model_options[0] in model_select:
+    if model_options[0]  == model_select:
         st.header("Logistic Regression")
         lr_value = st.slider(
             "Select a learning rate", min_value=0.01, max_value=0.1, step=0.01
@@ -518,8 +508,10 @@ if "processed_df" in st.session_state:
             accuracies["Logistic Regression"] = accuracy * 100.0
             st.write("Accuracy: %.2f%%" % (accuracy * 100.0))
 
-    if model_options[1] in model_select:
-        st.markdown("#### " + model_options[1])
+            st.session_state.model = ("logreg",logreg_model)
+
+    elif model_options[1]  == model_select:
+        st.header("Stochastic Gradient Descent with Logistic Regression")
         # Number of iterations: maximum iterations to run the iterative SGD
         sdg_num_iterations = st.number_input(
             label="Enter the number of maximum iterations on training data",
@@ -552,30 +544,30 @@ if "processed_df" in st.session_state:
             "batch_size": sgd_batch_size,
             "learning_rate": sdg_learning_rate,
         }
-
-        try:
-            X_train = pd.DataFrame(X_train.toarray())
-            X_test = pd.DataFrame(X_test.toarray())
-            sgd = StochasticLogisticRegression(
-                num_iterations=sgd_params["num_iterations"],
-                learning_rate=sgd_params["learning_rate"],
-                batch_size=sgd_params["batch_size"],
-            )
-            sgd.fit(X_train, np.ravel(y_train))
-            st.session_state[model_options[1]] = sgd
-            y_pred_sgd = sgd.predict(X_test)
-            accuracy = accuracy_score(y_test, y_pred_sgd)
-            st.write(f"Accuracy: {accuracy * 100.0}%")
-        except ValueError as err:
-            st.write({str(err)})
+        if st.button("Train Model"):
+            try:
+                X_train = pd.DataFrame(X_train.toarray())
+                X_test = pd.DataFrame(X_test.toarray())
+                sgd = StochasticLogisticRegression(
+                    num_iterations=sgd_params["num_iterations"],
+                    learning_rate=sgd_params["learning_rate"],
+                    batch_size=sgd_params["batch_size"],
+                )
+                sgd.fit(X_train, np.ravel(y_train))
+                st.session_state[model_options[1]] = sgd
+                y_pred_sgd = sgd.predict(X_test)
+                st.session_state.model = ("sgd",sgd)
+                accuracy = accuracy_score(y_test, y_pred_sgd)
+                st.write(f"Accuracy: {accuracy * 100.0}%")
+            except ValueError as err:
+                st.write({str(err)})
 
     # ----------------------------------------------
     # KNN
     # ----------------------------------------------
 
-    if model_options[2] in model_select:
+    elif model_options[2]  == model_select:
         st.header("KNN")
-
         # Hyper-parameters
         num_neighhbors = st.slider(
             "Select a learning rate", min_value=3, max_value=20, step=1
@@ -615,15 +607,54 @@ if "processed_df" in st.session_state:
             p,
             metric,
         )
-        st.write("cluster_predictions", cluster_predictions)
 
-        # new_post_matrix = vect.fit_transform(["this is a new post"])
-        # cluster_predictions = knn_predict(
-        #     X_train_subset.to_numpy(),
-        #     new_post_matrix,
-        #     y_train_subset,
-        #     num_neighhbors,
-        #     p,
-        #     metric,
-        # )
-        # st.write("new_post_cluster_predictions", cluster_predictions)
+        st.write(X_test_subset.to_numpy()[0].shape)
+        st.write("cluster_predictions", cluster_predictions)
+        st.session_state.model = ("knn", (X_train_subset.to_numpy(),
+                    y_train_subset,
+                    num_neighhbors,
+                    p,
+                    metric,))
+
+    st.subheader("Predict MBTI")
+    form = st.form(key="user_form")
+    user_input = form.text_input('Enter the post content')
+
+    if form.form_submit_button('Predict'):
+        if 'model' not in st.session_state:
+            st.error("Please select a model to train before predicting")
+        if user_input:
+            temp_dp = pd.DataFrame([user_input],columns = ["posts"])
+            # user_input = vetorize_posts(temp_df["posts"])
+            user_input = vect.transform(temp_dp["posts"])
+            modelname, model = st.session_state.model
+            if modelname == "logreg":
+                try:
+                    result = model.predict(user_input)
+                    st.success(f"Prediction: {result}")
+                except Exception as e:
+                    st.error(e) 
+            elif modelname == "sgd":
+                try:
+                    # user_input = pd.DataFrame(X_train.toarray())
+                    result = model.predict(user_input)
+                    st.success(f"Prediction: {result}")
+                except Exception as e:
+                    st.error("Invalid input") 
+            else:
+                X_train_subset,y_train_subset,num_neighhbors,p,metric = model
+                user_input = pd.DataFrame(user_input.toarray())
+                # st.write(user_input.to_numpy().flatten().shape)
+                # cluster_predictions = knn_predict(
+                #     X_train_subset,
+                #     user_input.to_numpy().flatten(),
+                #     y_train_subset,
+                #     num_neighhbors,
+                #     p,
+                #     metric,
+                # )
+                # st.success("new_post_cluster_predictions", cluster_predictions)
+
+        else:
+            st.error("Please enter some input before predicting.")
+
