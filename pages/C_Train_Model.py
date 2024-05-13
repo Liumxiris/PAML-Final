@@ -343,8 +343,8 @@ if "processed_df" in st.session_state:
     target = new_df["type of encoding"]
 
     le_name_mapping = dict(zip(enc.classes_, enc.fit_transform(enc.classes_)))
-    new_dict = dict([(value, key) for key, value in le_name_mapping.items()])
-
+    reversed_dict = {value: key for key, value in le_name_mapping.items()}
+    
     nltk.download("stopwords")
     nltk.download("punkt")
     nltk.download("wordnet")
@@ -465,12 +465,14 @@ if "processed_df" in st.session_state:
         print(cluster_predictions)
         print(y_test_subset[0], cluster_predictions[0])
 
+        return cluster_predictions
+    
+    def knn_evaluation(y_test_subset, cluster_predictions):
         # showing accuracy and f1_scores
         models_accuracy = accuracy_score(y_test_subset, cluster_predictions)
         f1_scores = f1_score(y_test_subset, cluster_predictions, average="macro")
+        st.write("Models Accuracy {}".format(models_accuracy))
         print(models_accuracy, f1_scores)
-
-        return cluster_predictions
 
     # select options for model
     model_options = ['Logistic Regression', 'Stochastic Gradient Descent with Logistic Regression', 'KNN']
@@ -607,8 +609,7 @@ if "processed_df" in st.session_state:
             p,
             metric,
         )
-
-        st.write(X_test_subset.to_numpy()[0].shape)
+        knn_evaluation(y_test_subset, cluster_predictions)
         st.write("cluster_predictions", cluster_predictions)
         st.session_state.model = ("knn", (X_train_subset.to_numpy(),
                     y_train_subset,
@@ -631,29 +632,31 @@ if "processed_df" in st.session_state:
             if modelname == "logreg":
                 try:
                     result = model.predict(user_input)
-                    st.success(f"Prediction: {result}")
+                    st.success(f"Prediction: {reversed_dict[result[0]]}")
                 except Exception as e:
                     st.error(e) 
             elif modelname == "sgd":
                 try:
                     # user_input = pd.DataFrame(X_train.toarray())
                     result = model.predict(user_input)
-                    st.success(f"Prediction: {result}")
+                    st.success(f"Prediction: {reversed_dict[result[0]]}")
                 except Exception as e:
-                    st.error("Invalid input") 
+                    st.error(e) 
             else:
                 X_train_subset,y_train_subset,num_neighhbors,p,metric = model
                 user_input = pd.DataFrame(user_input.toarray())
-                # st.write(user_input.to_numpy().flatten().shape)
-                # cluster_predictions = knn_predict(
-                #     X_train_subset,
-                #     user_input.to_numpy().flatten(),
-                #     y_train_subset,
-                #     num_neighhbors,
-                #     p,
-                #     metric,
-                # )
-                # st.success("new_post_cluster_predictions", cluster_predictions)
+                try:
+                    cluster_predictions = knn_predict(
+                        X_train_subset,
+                        user_input.to_numpy(),
+                        y_train_subset,
+                        num_neighhbors,
+                        p,
+                        metric,
+                    )
+                    st.success(f"Prediction: {reversed_dict[cluster_predictions[0]]}")
+                except Exception as e:
+                    st.error(e) 
 
         else:
             st.error("Please enter some input before predicting.")
