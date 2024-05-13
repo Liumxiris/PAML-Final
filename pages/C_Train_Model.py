@@ -298,13 +298,13 @@ class StochasticLogisticRegression(LogisticRegression):
                 i = 0
             self.learning_rate = self.learning_rate / 1.02
 
-# def vetorize_posts(df):
-#     # Vectorizing the posts for the model and filtering Stop-words
-#     vect = CountVectorizer(max_features=10000, stop_words="english", tokenizer=Lemmatizer())
+def vetorize_posts(df):
+    # Vectorizing the posts for the model and filtering Stop-words
+    vect = CountVectorizer(max_features=10000, stop_words="english", tokenizer=Lemmatizer())
 
-#     # Converting posts (or training or X feature) into numerical form by count vectorization
-#     train = vect.fit_transform(df)
-#     return train
+    # Converting posts (or training or X feature) into numerical form by count vectorization
+    train = vect.fit_transform(df)
+    return train
 
 if "processed_df" in st.session_state:
     new_df = st.session_state.processed_df
@@ -423,7 +423,7 @@ if "processed_df" in st.session_state:
 
     # select options for model
     model_options = ['Logistic Regression', 'Stochastic Gradient Descent with Logistic Regression', 'KNN']
-    model_select = st.multiselect(
+    model_select = st.selectbox(
         label='Select model for prediction',
         options=model_options,
     )
@@ -434,7 +434,7 @@ if "processed_df" in st.session_state:
     # Logistic Regression
     # ----------------------------------------------
 
-    if (model_options[0] in model_select):
+    if model_options[0]  == model_select:
         st.header('Logistic Regression')
         lr_value = st.slider("Select a learning rate", min_value=0.01, max_value=0.1, step=0.01)
         st.write("Logistic Regression Learning Rate:", lr_value)
@@ -446,15 +446,16 @@ if "processed_df" in st.session_state:
             logreg_model = LogisticRegression_jamie()
             logreg_model.fit(X_train, y_train,alpha=lr_value, iter=num_of_iter)
             Y_pred = logreg_model.predict(X_test)
+            print("X_test================", X_test[0])
             predictions = [round(value) for value in Y_pred]
 
             # evaluate predictions
             accuracy = accuracy_score(y_test, predictions)
             accuracies['Logistic Regression'] = accuracy* 100.0
-            st.write("Accuracy: %.2f%%" % (accuracy * 100.0))            
+            st.write("Accuracy: %.2f%%" % (accuracy * 100.0))      
 
-    if (model_options[1] in model_select):
-        st.markdown('#### ' + model_options[1])
+    elif model_options[1]  == model_select:
+        st.header("Stochastic Gradient Descent with Logistic Regression")
         # Number of iterations: maximum iterations to run the iterative SGD
         sdg_num_iterations = st.number_input(
             label='Enter the number of maximum iterations on training data',
@@ -489,26 +490,27 @@ if "processed_df" in st.session_state:
             'batch_size': sgd_batch_size,
             'learning_rate': sdg_learning_rate,
         }
-
-        try:
-            X_train = pd.DataFrame(X_train.toarray())
-            X_test = pd.DataFrame(X_test.toarray())
-            sgd = StochasticLogisticRegression(num_iterations=sgd_params['num_iterations'],
-                                            learning_rate=sgd_params['learning_rate'],
-                                            batch_size=sgd_params['batch_size'])
-            sgd.fit(X_train, np.ravel(y_train))
-            st.session_state[model_options[1]] = sgd
-            y_pred_sgd = sgd.predict(X_test)
-            accuracy = accuracy_score(y_test, y_pred_sgd)
-            st.write(f"Accuracy: {accuracy * 100.0}%")
-        except ValueError as err:
-            st.write({str(err)})
+        if st.button("Train Model"):
+            try:
+                X_train_sgd = pd.DataFrame(X_train.toarray())
+                X_test_sgd = pd.DataFrame(X_test.toarray())
+                sgd = StochasticLogisticRegression(num_iterations=sgd_params['num_iterations'],
+                                                learning_rate=sgd_params['learning_rate'],
+                                                batch_size=sgd_params['batch_size'])
+                sgd.fit(X_train_sgd.to_numpy(), np.ravel(y_train))
+                st.session_state[model_options[1]] = sgd
+                y_pred_sgd = sgd.predict(X_test_sgd.to_numpy())
+                accuracy = accuracy_score(y_test, y_pred_sgd)
+                st.write(f"Accuracy: {accuracy * 100.0}%")
+            except ValueError as err:
+                st.write({str(err)})
 
     # ----------------------------------------------
     # KNN
     # ----------------------------------------------
 
-    if (model_options[2] in model_select):
+    elif model_options[2]  == model_select:
+        st.header("KNN")
         # Hyper-parameters
         num_neighhbors = 15
         metric = "manhattan"  # Options: 'manhattan', 'minkowski', 'euclidean', 'cosine'
