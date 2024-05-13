@@ -250,6 +250,7 @@ class StochasticLogisticRegression(LogisticRegression):
         # invoking the __init__ of the parent class
         LogisticRegression.__init__(self, learning_rate, num_iterations)
 
+
     def fit(self, X, Y):
         self.likelihood_history = []
 
@@ -259,7 +260,7 @@ class StochasticLogisticRegression(LogisticRegression):
 
         permutation = np.random.permutation(len(X))
 
-        self.X = X[permutation, :]
+        self.X = X.to_numpy()[permutation, :]
         self.Y = Y[permutation]
         self.b = 0
 
@@ -278,16 +279,16 @@ class StochasticLogisticRegression(LogisticRegression):
                 self.W[j] -= self.learning_rate * dW
 
             lp = self.compute_avg_log_likelihood(self.X[i:i + self.batch_size, :], self.Y[i:i + self.batch_size],
-                                                self.W)
+                                                 self.W)
 
             self.likelihood_history.append(lp)
             if itr <= 15 or (itr <= 1000 and itr % 100 == 0) or (itr <= 10000 and itr % 1000 == 0) \
                     or itr % 10000 == 0 or itr == self.num_iterations - 1:
                 data_size = len(X)
                 print('Iteration %*d: Average log likelihood (of data points in batch [%0*d:%0*d]) = %.8f' % \
-                    (int(np.ceil(np.log10(self.num_iterations))), itr, \
-                    int(np.ceil(np.log10(data_size))), i, \
-                    int(np.ceil(np.log10(data_size))), i + self.batch_size, lp))
+                      (int(np.ceil(np.log10(self.num_iterations))), itr, \
+                       int(np.ceil(np.log10(data_size))), i, \
+                       int(np.ceil(np.log10(data_size))), i + self.batch_size, lp))
 
             i += self.batch_size
             if i + self.batch_size > len(self.X):
@@ -490,12 +491,14 @@ if "processed_df" in st.session_state:
         }
 
         try:
+            X_train = pd.DataFrame(X_train.toarray())
+            X_test = pd.DataFrame(X_test.toarray())
             sgd = StochasticLogisticRegression(num_iterations=sgd_params['num_iterations'],
                                             learning_rate=sgd_params['learning_rate'],
                                             batch_size=sgd_params['batch_size'])
-            sgd.fit(X_train.to_numpy(), np.ravel(y_train))
+            sgd.fit(X_train, np.ravel(y_train))
             st.session_state[model_options[1]] = sgd
-            y_pred_sgd = sgd.predict(X_test.to_numpy())
+            y_pred_sgd = sgd.predict(X_test)
             accuracy = accuracy_score(y_test, y_pred_sgd)
             st.write(f"Accuracy: {accuracy * 100.0}%")
         except ValueError as err:
