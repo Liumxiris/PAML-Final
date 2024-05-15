@@ -14,7 +14,7 @@ from nltk import word_tokenize
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, cross_val_score, KFold
 from sklearn.metrics import (
     accuracy_score,
     precision_score,
@@ -22,9 +22,10 @@ from sklearn.metrics import (
     f1_score,
     multilabel_confusion_matrix,
     confusion_matrix,
+    mean_squared_error
 )
-from sklearn.metrics import accuracy_score
 
+n_folds = 5
 
 class Lemmatizer:
     def __init__(self):
@@ -104,39 +105,21 @@ class LogisticRegression(object):
     def predict_probability(self, X):
         """
         Produces probabilistic estimate for P(y_i = +1 | x_i, w)
-            Estimate ranges between 0 and 1.
-        Input:
-            - X: Input features
-            - W: weights/coefficients of logistic regression model
-            - b: bias or y-intercept of logistic regression classifier
-        Output:
-            - y_pred: probability of positive product review
+        Estimate ranges between 0 and 1.
         """
-        # Take dot product of feature_matrix and coefficients
         score = np.dot(X, self.W) + self.b
-
-        # Compute P(y_i = +1 | x_i, w) using the link function
-        # y_pred = 1. / (1.+np.exp(-score)) + self.b  # this is a bug
         y_pred = 1.0 / (1.0 + np.exp(-score))
-
         return y_pred
 
     def compute_avg_log_likelihood(self, X, Y, W):
         """
         Compute the average log-likelihood of logistic regression coefficients
-
-        Input
-            - X: subset of features in dataset
-            - Y: true sentiment of inputs
-            - W: logistic regression weights
-        Output
-            - lp: log likelihood estimation
         """
         indicator = Y == +1
         scores = np.dot(X, W)
         logexp = np.log(1.0 + np.exp(-scores))
 
-        # Simple check to prevent overflow
+        # Prevent overflow
         mask = np.isinf(logexp)
         logexp[mask] = -scores[mask]
 
@@ -147,181 +130,145 @@ class LogisticRegression(object):
         """
         Compute the logistic regression derivative using
         gradient ascent and update weights self.W
-
-        Inputs: None
-        Output: None
         """
-        try:
-            # Make a prediction
-            y_pred = self.predict(self.X)
+        y_pred = self.predict_probability(self.X)
+        dW = self.X.T.dot(self.Y - y_pred) / self.num_examples
+        db = np.sum(self.Y - y_pred) / self.num_examples
 
-            # Bug
-            # dW = self.X.T.dot(self.Y-y_pred) / self.num_features
-            # db = np.sum(self.Y-y_pred) / self.num_features
+        self.b += self.learning_rate * db
+        self.W += self.learning_rate * dW
 
-            dW = self.X.T.dot(self.Y - y_pred) / self.num_examples
-            db = np.sum(self.Y - y_pred) / self.num_examples
-
-            # update weights and bias
-            self.b = self.b + self.learning_rate * db
-            self.W = self.W + self.learning_rate * dW
-
-            log_likelihood = 0
-            # Compute log-likelihood
-            log_likelihood += self.compute_avg_log_likelihood(self.X, self.Y, self.W)
-            self.likelihood_history.append(log_likelihood)
-        except ValueError as err:
-            st.write({str(err)})
+        log_likelihood = self.compute_avg_log_likelihood(self.X, self.Y, self.W)
+        self.likelihood_history.append(log_likelihood)
 
     def predict(self, X):
         """
-        Hypothetical function  h(x)
-        Input:
-            - X: Input features
-            - W: weights/coefficients of logistic regression model
-            - b: bias or y-intercept of logistic regression classifier
-        Output:
-            - Y: list of predicted classes
+        Predict the classes for the input features
         """
-        y_pred = 0
-        try:
-            scores = 1 / (1 + np.exp(-(X.dot(self.W) + self.b)))
-            y_pred = [-1 if z <= 0.5 else +1 for z in scores]
-        except ValueError as err:
-            st.write({str(err)})
+        scores = self.predict_probability(X)
+        y_pred = [-1 if z <= 0.5 else +1 for z in scores]
         return y_pred
 
     def fit(self, X, Y):
         """
         Run gradient ascent to fit features to data using logistic regression
-        Input:
-            - X: Input features
-            - Y: list of actual product sentiment classes
-            - num_iterations: # of iterations to update weights using gradient ascent
-            - learning_rate: learning rate
-        Output:
-            - W: predicted weights
-            - b: predicted bias
-            - likelihood_history: history of log likelihood
         """
-        # no_of_training_examples, no_of_features
         self.num_examples, self.num_features = X.shape
-
-        # weight initialization
         self.W = np.zeros(self.num_features)
         self.X = X
         self.Y = Y
         self.b = 0
         self.likelihood_history = []
 
-        # gradient ascent learning
-        try:
-            for _ in range(self.num_iterations):
-                self.update_weights()
-        except ValueError as err:
-            st.write({str(err)})
+        for _ in range(self.num_iterations):
+            self.update_weights()
 
     def get_weights(self, model_name):
         """
         This function prints the coefficients of the trained models
-
-        Input:
-            - model_name (list of strings): list of model names including: 'Logistic Regression', 'Stochastic Gradient Ascent with Logistic Regression'
-        Output:
-            - out_dict: a dicionary contains the coefficients of the selected models, with the following keys:
-            - 'Logistic Regression'
-            - 'Stochastic Gradient Ascent with Logistic Regression'
         """
         out_dict = {
             "Logistic Regression": [],
             "Stochastic Gradient Ascent with Logistic Regression": [],
         }
-        try:
-            # set weight for given model_name
-            W = np.array([f for f in self.W])
-            out_dict[model_name] = self.W
-            # Print Coefficients
-            st.write("-------------------------")
-            st.write("Model Coefficients for " + model_name)
-            num_positive_weights = np.sum(W >= 0)
-            num_negative_weights = np.sum(W < 0)
-            st.write("* Number of positive weights: {}".format(num_positive_weights))
-            st.write("* Number of negative weights: {}".format(num_negative_weights))
-        except ValueError as err:
-            st.write({str(err)})
+        out_dict[model_name] = self.W
+
+        num_positive_weights = np.sum(self.W >= 0)
+        num_negative_weights = np.sum(self.W < 0)
+        print("-------------------------")
+        print("Model Coefficients for " + model_name)
+        print("* Number of positive weights: {}".format(num_positive_weights))
+        print("* Number of negative weights: {}".format(num_negative_weights))
+
         return out_dict
 
 
+
 class StochasticLogisticRegression(LogisticRegression):
-    def __init__(self, num_iterations, learning_rate, batch_size):
-        self.likelihood_history = []
+    def __init__(self, num_iterations=500, learning_rate=0.001, batch_size=10):
+        super().__init__(learning_rate, num_iterations)
         self.batch_size = batch_size
 
-        # invoking the __init__ of the parent class
-        LogisticRegression.__init__(self, learning_rate, num_iterations)
-
     def fit(self, X, Y):
-        self.likelihood_history = []
+        # Ensure X and Y are DataFrames/Series for proper indexing
+        if isinstance(X, np.ndarray):
+            X = pd.DataFrame(X)
+        if isinstance(Y, np.ndarray):
+            Y = pd.Series(Y)
 
         self.num_examples, self.num_features = X.shape
-
         self.W = np.zeros(self.num_features)
+        self.b = 0
+        self.likelihood_history = []
 
         permutation = np.random.permutation(len(X))
+        self.X = X.iloc[permutation, :].reset_index(drop=True)
+        self.Y = Y.iloc[permutation].reset_index(drop=True)
 
-        self.X = X.to_numpy()[permutation, :]
-        self.Y = Y[permutation]
-        self.b = 0
+        print("Permutation:", permutation)
+        print("X indices after permutation:", self.X.index)
+        print("Y indices after permutation:", self.Y.index)
 
         i = 0
         for itr in range(self.num_iterations):
-            predictions = self.predict_probability(self.X[i : i + self.batch_size, :])
+            batch_end = i + self.batch_size
+            if batch_end > len(self.X):
+                batch_end = len(self.X)
+            X_batch = self.X.iloc[i:batch_end]
+            Y_batch = self.Y.iloc[i:batch_end]
 
-            indicator = self.Y[i : i + self.batch_size] == +1
-
+            predictions = self.predict_probability(X_batch)
+            indicator = Y_batch == +1
             errors = indicator - predictions
 
             for j in range(len(self.W)):
-                dW = errors.dot(self.X[i : i + self.batch_size, j].T)
-
-                # Subtract the gradient from the weights
+                dW = errors.dot(X_batch.iloc[:, j].T)
                 self.W[j] -= self.learning_rate * dW
 
-            lp = self.compute_avg_log_likelihood(
-                self.X[i : i + self.batch_size, :],
-                self.Y[i : i + self.batch_size],
-                self.W,
-            )
-
+            lp = self.compute_avg_log_likelihood(X_batch, Y_batch, self.W)
             self.likelihood_history.append(lp)
-            if (
-                itr <= 15
-                or (itr <= 1000 and itr % 100 == 0)
-                or (itr <= 10000 and itr % 1000 == 0)
-                or itr % 10000 == 0
-                or itr == self.num_iterations - 1
-            ):
-                data_size = len(X)
-                print(
-                    "Iteration %*d: Average log likelihood (of data points in batch [%0*d:%0*d]) = %.8f"
-                    % (
-                        int(np.ceil(np.log10(self.num_iterations))),
-                        itr,
-                        int(np.ceil(np.log10(data_size))),
-                        i,
-                        int(np.ceil(np.log10(data_size))),
-                        i + self.batch_size,
-                        lp,
-                    )
-                )
+
+            if (itr <= 15 or (itr <= 1000 and itr % 100 == 0) or
+                    (itr <= 10000 and itr % 1000 == 0) or itr % 10000 == 0 or
+                    itr == self.num_iterations - 1):
+                print(f"Iteration {itr}: Average log likelihood = {lp:.8f}")
 
             i += self.batch_size
-            if i + self.batch_size > len(self.X):
+            if i >= len(self.X):
                 permutation = np.random.permutation(len(self.X))
-                self.X = self.X[permutation, :]
-                self.Y = self.Y[permutation]
+                self.X = self.X.iloc[permutation, :].reset_index(drop=True)
+                self.Y = self.Y.iloc[permutation].reset_index(drop=True)
+                # print("Reshuffled X indices:", self.X.index)
+                # print("Reshuffled Y indices:", self.Y.index)
                 i = 0
-            self.learning_rate = self.learning_rate / 1.02
+            self.learning_rate /= 1.02
+
+    def cross_validate(self, X, Y, k=5):
+        if isinstance(X, np.ndarray):
+            X = pd.DataFrame(X)
+        if isinstance(Y, np.ndarray):
+            Y = pd.Series(Y)
+
+        kf = KFold(n_splits=k)
+        accuracies = []
+
+        for train_index, test_index in kf.split(X):
+            X_train, X_test = X.iloc[train_index].reset_index(drop=True), X.iloc[test_index].reset_index(drop=True)
+            Y_train, Y_test = Y.iloc[train_index].reset_index(drop=True), Y.iloc[test_index].reset_index(drop=True)
+
+            self.fit(X_train, Y_train)
+            y_pred = self.predict(X_test)
+            accuracy = accuracy_score(Y_test, y_pred)
+            accuracies.append(accuracy)
+
+        avg_accuracy = np.mean(accuracies)
+        return avg_accuracy
+
+
+    def score(self, X, y):
+        """Returns the mean accuracy on the given test data and labels."""
+        y_pred = self.predict(X)
+        return accuracy_score(y, y_pred)
 
 
 if "processed_df" in st.session_state:
@@ -331,9 +278,9 @@ if "processed_df" in st.session_state:
     # Feature Engineering
     # ----------------------------------------------
 
-    new_df["posts"] = new_df["posts"].apply(
-        lambda x: x[:100] + "..." if len(x) > 100 else x
-    )
+    # new_df["posts"] = new_df["posts"].apply(
+    #     lambda x: x[:100] + "..." if len(x) > 100 else x
+    # )
     new_df.head()
 
     # Converting MBTI personality into numerical form using Label Encoding
@@ -557,10 +504,18 @@ if "processed_df" in st.session_state:
                 )
                 sgd.fit(X_train, np.ravel(y_train))
                 st.session_state[model_options[1]] = sgd
+                y_train_pred_sgd = sgd.predict(X_train)
                 y_pred_sgd = sgd.predict(X_test)
                 st.session_state.model = ("sgd",sgd)
                 accuracy = accuracy_score(y_test, y_pred_sgd)
-                st.write(f"Accuracy: {accuracy * 100.0}%")
+                train_mse = mean_squared_error(y_train, y_train_pred_sgd)
+                test_mse = mean_squared_error(y_test, y_pred_sgd)
+                st.write("Train MSE: %.2f" % train_mse)
+                st.write("Test MSE: %.2f" % test_mse)
+
+                avg_accuracy = sgd.cross_validate(X_train, y_train, k=3)
+                st.write("Accuracy: %.2f%%" % (accuracy * 100.0))
+                st.write("Average Accuracy: %.2f%%" % (avg_accuracy * 100.0))
             except ValueError as err:
                 st.write({str(err)})
 
