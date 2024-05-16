@@ -25,7 +25,8 @@ from sklearn.metrics import (
     mean_squared_error
 )
 
-n_folds = 5
+from sklearn.model_selection import GridSearchCV
+from sklearn.base import BaseEstimator
 
 class Lemmatizer:
     def __init__(self):
@@ -93,6 +94,14 @@ class LogisticRegression_jamie(object):
             else:
                 lis.append(0)
         return lis
+    
+
+class CustomEstimator(BaseEstimator):
+    def __init__(self, num_iterations=100, learning_rate=0.01, batch_size=32):
+        self.num_iterations = num_iterations
+        self.learning_rate = learning_rate
+        self.batch_size = batch_size
+        self.model = StochasticLogisticRegression(num_iterations=self.num_iterations, learning_rate=self.learning_rate, batch_size=self.batch_size)
 
 
 # logistic regression with SGD
@@ -182,8 +191,6 @@ class LogisticRegression(object):
 
         return out_dict
 
-
-
 class StochasticLogisticRegression(LogisticRegression):
     def __init__(self, num_iterations=500, learning_rate=0.001, batch_size=10):
         super().__init__(learning_rate, num_iterations)
@@ -263,6 +270,8 @@ class StochasticLogisticRegression(LogisticRegression):
 
         avg_accuracy = np.mean(accuracies)
         return avg_accuracy
+    
+    
 
 
     def score(self, X, y):
@@ -457,7 +466,15 @@ if "processed_df" in st.session_state:
             accuracies["Logistic Regression"] = accuracy * 100.0
             st.write("Accuracy: %.2f%%" % (accuracy * 100.0))
 
+            y_train_pred_logis = logreg_model.predict(X_train)
+            y_pred_logis = logreg_model.predict(X_test)
+            train_mse_logis = mean_squared_error(y_train, y_train_pred_logis)
+            test_mse_logis = mean_squared_error(y_test, y_pred_logis)
+
             st.session_state.model = ("logreg",logreg_model)
+
+            st.write("Train MSE: %.2f" % train_mse_logis)
+            st.write("Test MSE: %.2f" % test_mse_logis)
 
     elif model_options[1]  == model_select:
         st.header("Stochastic Gradient Descent with Logistic Regression")
@@ -512,12 +529,24 @@ if "processed_df" in st.session_state:
                 test_mse = mean_squared_error(y_test, y_pred_sgd)
                 st.write("Train MSE: %.2f" % train_mse)
                 st.write("Test MSE: %.2f" % test_mse)
-
+                
+                
                 avg_accuracy = sgd.cross_validate(X_train, y_train, k=3)
                 st.write("Accuracy: %.2f%%" % (accuracy * 100.0))
                 st.write("Average Accuracy: %.2f%%" % (avg_accuracy * 100.0))
+
+                # Now use CustomEstimator in GridSearchCV
+                param_grid = {'num_iterations': [100, 500, 1000],'learning_rate': [0.001, 0.01, 0.1], 'batch_size': [32, 64, 128]}
+                grid_search_sgd = GridSearchCV(CustomEstimator(), param_grid, cv=5, scoring='accuracy')
+                grid_search_sgd.fit(X_train.toarray(), np.ravel(y_train))
+                best_params = grid_search_sgd.best_params_
+                best_score = grid_search_sgd.best_score_
+
+                print(f"Best parameters: {best_params}")
+                print(f"Best score: {best_score}")
             except ValueError as err:
                 st.write({str(err)})
+
 
     # ----------------------------------------------
     # KNN
@@ -615,4 +644,4 @@ if "processed_df" in st.session_state:
 
         else:
             st.error("Please enter some input before predicting.")
-
+        
